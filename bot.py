@@ -26,7 +26,7 @@ threading.Thread(target=run_fake_server, daemon=True).start()
 # ==========================
 # CONFIGURATION DU BOT
 # ==========================
-BOT_USERNAME = "leviae"
+BOT_USERNAME = "er3n_bot"
 
 OWNERS = ["65592020383c55ed5c45aabd"]
 MODERATORS = ["65592020383c55ed5c45aabd"]
@@ -107,7 +107,7 @@ EMOTES = {
 class Bot(BaseBot):
     async def on_start(self, session_metadata: SessionMetadata):
         print("🤖 Bot connecté !")
-        await self.highrise.chat("✅ Leviae est en ligne ! Tape !help")
+        await self.highrise.chat("✅ er3n_bot est en ligne ! Tape !help")
 
     async def on_user_join(self, user: User, position: Position):
         await self.highrise.chat(f"👋 Bienvenue {user.username} !")
@@ -167,4 +167,5 @@ class Bot(BaseBot):
 if __name__ == "__main__":
     room = os.environ.get("room_id", "65e361f8aef42a7b0ed22029")
     token = os.environ.get("api_token", "f1f9d1cae9063a6a0a50ccfc95d0864005990c820d5f7dcf3463a6a11ecd3cfa")
-    os.system(f"highrise main:Bot {room} {token}")
+    # CORRECTION : Utilisation de bot:Bot à la place de main:Bot
+    os.system(f"highrise bot:Bot {room} {token}")
