@@ -98,8 +98,7 @@ EMOTES = {
     "sumo": "emote-sumo", "death2": "emote-death2", "smirking": "emoji-smirking",
     "voguehands": "dance-voguehands", "eyeroll": "emoji-eyeroll", "giveup": "emoji-give-up",
     "bunnyhop": "emote-bunnyhop", "exasperatedb": "emote-exasperatedb", "loophappy": "idle-loop-happy",
-    "heartfingers": "emote-heartfingers", "collabphoto": "emote-collab-photo-left",
-    "afk": "emote-afk-idle", "afk", "emote-afk-idle"
+    "heartfingers": "emote-heartfingers", "collabphoto": "emote-collab-photo-left"
 }
 
 # ==========================
