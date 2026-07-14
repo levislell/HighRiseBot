@@ -8,13 +8,17 @@ from highrise.models import SessionMetadata, CurrencyItem
 # ==========================
 # SIMULATION DE PORT POUR RENDER GRATUIT
 # ==========================
+
 def run_fake_server():
     # Render donne un port dans les variables (souvent 10000), sinon on prend 10000
     port = int(os.environ.get("PORT", 10000))
     server_address = ('0.0.0.0', port)
-    httpd = http.server.HTTPServer(server_address, http.server.SimpleHTTPRequestHandler)
-    print(f"🌍 Faux serveur Web activé sur le port {port} pour tromper Render.")
-    httpd.serve_forever()
+    try:
+        httpd = http.server.HTTPServer(server_address, http.server.SimpleHTTPRequestHandler)
+        print(f"🌍 Faux serveur Web activé sur le port {port} pour tromper Render.")
+        httpd.serve_forever()
+    except OSError:
+        print(f"⚠️ Le port {port} est déjà utilisé. En attente de la fermeture de l'ancien bot...")
 
 # On lance le faux serveur web dans un fil secondaire (thread) pour ne pas bloquer le bot
 threading.Thread(target=run_fake_server, daemon=True).start()
