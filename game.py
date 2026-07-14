@@ -1,129 +1,96 @@
 import json
-from player import playersData,setPlayerData
-# import asyncio
-import datetime
-import pytz
+import os
 import random
-# settings json
-def getSettings():
-    with open("settings.json",'r',encoding='utf-8') as f:
-        return json.load(f) 
+from highrise import User, Position
+from highrise.models import CurrencyItem
 
-# set rousours (coins, woods, fishs) to player by id
-def setResour(id,coins,wood,fish):
-    data = playersData()
-    data[id]['resourses']["coins"] = coins
-    data[id]['resourses']["wood"] = wood
-    data[id]['resourses']["fish"] = fish
-    setPlayerData(data)
+class Game:
+    def __init__(self):
+        self.players = {}
+        self.points = {}
+        self.load_data()
 
-# sell wood and fish for coins
-## number wood = 1gold
-## number fish = 1gold
-## number = sttings['item']
-async def sellItems(id):
-    data = playersData()
-    settings = getSettings() 
-    coins = data[id]['resourses']["coins"]
-    wood = data[id]['resourses']["wood"]
-    fish = data[id]['resourses']["fish"]
-    c_add = wood//settings['wood'] + fish//settings['fish']
-    coins += c_add 
-    wood = wood % settings['wood']
-    fish = fish % settings['fish']
-    setResour(id,coins,wood,fish)
-    return c_add
+    def load_data(self):
+        # Encodage sécurisé en utf-8 pour éviter les crashs sur les serveurs de Render
+        if os.path.exists("players.json"):
+            try:
+                with open("players.json", "r", encoding="utf-8") as f:
+                    self.points = json.load(f)
+            except Exception:
+                self.points = {}
 
-# buy item axe[1-4] or fishing-rod[5-8]
-## return True when the baught complete
-## return false if user does't have enough coins
-async def buyItem(id,num):
-    data = playersData()
-    settings = getSettings()
-    player = data[id]
-    coins = player["resourses"]["coins"]
-    if num >=1 and num<=4:
-        num -= 1 
-        tool = "axe"
-        tooln = "Axe"
-    if num >=5 and num <= 8:
-        num -= 5
-        tool = "rod"
-        tooln = "Fishing Rod"
+    def save_data(self):
+        try:
+            with open("players.json", "w", encoding="utf-8") as f:
+                json.dump(self.points, f, ensure_ascii=False, indent=4)
+        except Exception as e:
+            print(f"Erreur de sauvegarde JSON : {e}")
 
-    tType = list(settings["toolsPrix"][tool])[num]
-    prix = settings["toolsPrix"][tool][tType]
-    if prix <= coins:
-        coins -= prix
-        player["resourses"]["coins"] = coins
-        player["tools"][tool] = tType
-        data[id] = player
-        setPlayerData(data)
-        
-        # return f"\nYou have get {tType} {tooln} by {prix}\nYou still have {coins}Gala"
-        return [tType,tooln,prix,coins]
-    
-    # return f"You need {-(coins-prix)} Gala to get this tool"
-    need = prix - coins
-    return [False, need ]
+    def add_player(self, user: User):
+        self.players[user.id] = user.username
+        if user.username not in self.points:
+            self.points[user.username] = 0
+            self.save_data()
 
-async def chop(id):
-    data = playersData()
-    settings = getSettings()
-    player = data[id]
-    lastChop = datetime.datetime.strptime(player["lastChop"], "%Y-%m-%d %H:%M:%S")
-    now = datetime.datetime.now(pytz.utc).strftime("%Y-%m-%d %H:%M:%S")
-    now = datetime.datetime.strptime(now, "%Y-%m-%d %H:%M:%S")
-    diff = now - lastChop
-    tseconds =int(diff.total_seconds())
-    minutes = tseconds // 60
-    seconds = tseconds % 60
-    if minutes >= settings["chopToolSleep"]:
-        tool_type = player["tools"]["axe"]
-        range = settings["toolRange"]["axe"][tool_type]
-        getWood = random.randint(range[0],range[1])
-        player["resourses"]["wood"] += getWood 
-        player["lastChop"] = now.strftime("%Y-%m-%d %H:%M:%S")
-        data[id] = player
-        setPlayerData(data)
-        return getWood
-    # format time
-    wait_m = settings["chopToolSleep"] - minutes
-    wait_s = 60 - seconds
-    time_str = "{:02d}:{:02d}".format(wait_m, wait_s)
-    return time_str
-    
-    
+    def remove_player(self, user: User):
+        if user.id in self.players:
+            del self.players[user.id]
 
-async def fish(id):
-    data = playersData()
-    settings = getSettings()
-    player = data[id]
-    lastChop = datetime.datetime.strptime(player["lastFish"], "%Y-%m-%d %H:%M:%S")
-    now = datetime.datetime.now(pytz.utc).strftime("%Y-%m-%d %H:%M:%S")
-    now = datetime.datetime.strptime(now, "%Y-%m-%d %H:%M:%S")
-    diff = now - lastChop
-    tseconds =int(diff.total_seconds())
-    minutes = tseconds // 60
-    seconds = tseconds % 60
-    if minutes >= settings["fishToolSleep"]:
-        tool_type = player["tools"]["rod"]
-        range = settings["toolRange"]["rod"][tool_type]
-        getWood = random.randint(range[0],range[1])
-        player["resourses"]["fish"] += getWood 
-        player["lastFish"] = now.strftime("%Y-%m-%d %H:%M:%S")
-        data[id] = player
-        setPlayerData(data)
-        return getWood
-    # format time
-    wait_m = settings["fishToolSleep"] - minutes
-    wait_s = 60 - seconds
-    time_str = "{:02d}:{:02d}".format(wait_m, wait_s)
-    return time_str
+    async def gameloop(self, highrise_api):
+        # Boucle automatique en arrière-plan pour animer le salon toutes les 60 secondes
+        while True:
+            await asyncio.sleep(60)
+            if self.players:
+                # Choisit un joueur au hasard présent dans la pièce pour lui offrir un bonus
+                random_user_id = random.choice(list(self.players.keys()))
+                username = self.players[random_user_id]
+                self.points[username] = self.points.get(username, 0) + 10
+                self.save_data()
+                try:
+                    await highrise_api.chat(f"Félicitations @{username} ! Tu gagnes 10 points bonus d'activité ! 🎉")
+                    # SYNTAXE CORRIGÉE : l'ID de l'utilisateur passe toujours en premier
+                    await highrise_api.send_emote(random_user_id, "emote-celebrate")
+                except Exception:
+                    pass
 
+    async def handle_command(self, highrise_api, user: User, message: str) -> None:
+        msg = message.lower().strip()
 
+        # Commande pour voir ses points accumulés
+        if msg == "/points":
+            pts = self.points.get(user.username, 0)
+            await highrise_api.chat(f"@{user.username}, tu possèdes actuellement {pts} points ! 🏆")
+            return
 
+        # Commande de danse / emote générique
+        if msg.startswith("/dance") or msg.startswith("/emote"):
+            # Liste d'emotes populaires utilisables par défaut
+            emotes_disponibles = ["dance-macarena", "dance-blackpink", "emote-wave", "emote-laughing", "emote-shy"]
+            dance_choisie = random.choice(emotes_disponibles)
+            try:
+                # SYNTAXE CORRIGÉE : Correction de l'ancienne version défectueuse d'ilorez
+                await highrise_api.send_emote(user.id, dance_choisie)
+            except Exception:
+                await highrise_api.send_whisper(user.id, "Zut ! Je ne peux pas exécuter cette danse pour le moment.")
+            return
 
+        # Guide d'aide pour afficher les commandes aux utilisateurs
+        if msg == "/help":
+            aide = "Commandes disponibles : /points (voir votre score), /dance (lancer une danse aléatoire), /joke (écouter une blague)."
+            await highrise_api.chat(aide)
+            return
 
+    async def handle_whisper_command(self, highrise_api, user: User, message: str) -> None:
+        # Gestion optionnelle des messages reçus en chuchotement privé
+        msg = message.lower().strip()
+        if msg == "/secret":
+            await highrise_api.send_whisper(user.id, "Chut... C'est un message top secret entre toi et moi ! 🤫")
 
-
+    async def process_tip(self, highrise_api, sender: User, amount: int) -> None:
+        # Traitement spécial quand un joueur donne de l'or au bot
+        username = sender.username
+        # On récompense le donateur en lui offrant 100 points par pièce d'or offerte
+        points_gagnes = amount * 100
+        self.points[username] = self.points.get(username, 0) + points_gagnes
+        self.save_data()
+        print(f"[Économie] {username} a reçu {points_gagnes} points grâce à son don.")
